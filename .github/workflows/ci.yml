@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: |
+          rustup toolchain install stable --profile minimal -c clippy -c rustfmt
+          rustup default stable
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: >
+          cargo clippy --locked --all-targets
+          --no-default-features --features native-tls -- -D warnings
+      - run: cargo doc --locked --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - name: Reject a build without TLS
+        run: |
+          if cargo check --locked --no-default-features 2>err.log; then
+            echo "built without a TLS backend" >&2
+            exit 1
+          fi
+          grep -q 'needs a TLS backend' err.log
+      - run: cargo package --locked
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tls: [rustls, native-tls]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - run: >
+          cargo test --locked
+          --no-default-features --features ${{ matrix.tls }}
+
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install 1.97 --profile minimal
+      - run: cargo +1.97 check --locked --all-targets
+
+  # Cargo.lock does not reach users, so also try the newest releases, as
+  # the Cargo guide suggests.  Failures here are a warning, not a block.
+  latest_deps:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: allow
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - run: cargo update --verbose
+      - run: cargo test

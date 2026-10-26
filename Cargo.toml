@@ -1,0 +1,31 @@
+[package]
+name = "zohal"
+version = "0.1.0"
+authors = ["Faraz Vahedi <kfv@FreeBSD.org>"]
+edition = "2024"
+rust-version = "1.97"
+description = "Unofficial client for the Zohal (zohal.io) identity, banking and general enquiry API"
+license = "BSD-2-Clause"
+repository = "https://github.com/kfv/zohal-rs"
+readme = "README.md"
+keywords = ["zohal", "kyc", "iban", "shahkar", "iran"]
+categories = ["api-bindings", "web-programming::http-client"]
+include = ["/src", "/LICENSE", "/README.md"]
+
+[features]
+default = ["rustls"]
+rustls = ["reqwest/rustls"]
+native-tls = ["reqwest/native-tls"]
+
+[dependencies]
+bytes = "1.12.1"
+futures-core = "0.3.34"
+mime_guess = "2.0.5"
+reqwest = { version = "0.13.5", default-features = false, features = ["http2", "json", "multipart", "stream", "system-proxy"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tokio = { version = "1.54.1", features = ["fs"] }
+tokio-util = { version = "0.7.20", features = ["io"] }
+
+[dev-dependencies]
+tokio = { version = "1.54.1", features = ["io-util", "macros", "net", "rt"] }
